@@ -19,40 +19,14 @@ import {
   CloudRain
 } from "lucide-react";
 import { Link } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useApplications } from "@/hooks/useApplications";
+import { useTranslation } from "react-i18next";
 
 const FarmerDashboard = () => {
-  const applications = [
-    {
-      id: "APP-2024-001",
-      type: "Well Permit",
-      typeAr: "ترخيص بئر",
-      status: "under_review",
-      statusLabel: "Under Review",
-      statusLabelAr: "قيد المراجعة",
-      submittedDate: "2024-01-15",
-      progress: 60
-    },
-    {
-      id: "APP-2024-002", 
-      type: "Farming License",
-      typeAr: "رخصة زراعة",
-      status: "approved",
-      statusLabel: "Approved",
-      statusLabelAr: "موافق عليه",
-      submittedDate: "2024-01-10",
-      progress: 100
-    },
-    {
-      id: "APP-2024-003",
-      type: "Subsidy Request",
-      typeAr: "طلب إعانة",
-      status: "pending",
-      statusLabel: "Pending",
-      statusLabelAr: "في الانتظار",
-      submittedDate: "2024-01-20",
-      progress: 20
-    }
-  ];
+  const { profile } = useAuth();
+  const { applications, loading } = useApplications();
+  const { t } = useTranslation();
 
   const quickActions = [
     {
@@ -133,12 +107,15 @@ const FarmerDashboard = () => {
       {/* Header */}
       <div className="mb-8">
         <h1 className="text-heading-1 mb-2">
-          Farmer Dashboard | لوحة تحكم المزارع
+          {t('farmer.dashboard')}
         </h1>
         <p className="text-muted-foreground">
-          Welcome back! Manage your applications and farm operations.
-          <br />
-          <span className="text-sm">مرحباً بعودتك! إدارة طلباتك وعمليات المزرعة</span>
+          {t('farmer.welcome')}
+          {profile && (
+            <span className="block text-sm mt-1">
+              Welcome back, {profile.full_name}!
+            </span>
+          )}
         </p>
       </div>
 
@@ -214,41 +191,62 @@ const FarmerDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {applications.map((app) => {
-                  const StatusIcon = getStatusIcon(app.status);
-                  return (
-                    <div key={app.id} className="border rounded-lg p-4">
-                      <div className="flex items-center justify-between mb-3">
-                        <div>
-                          <h4 className="font-semibold">{app.type} | {app.typeAr}</h4>
-                          <p className="text-sm text-muted-foreground">ID: {app.id}</p>
+                {loading ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">{t('common.loading')}</p>
+                  </div>
+                ) : applications.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No applications found</p>
+                    <Button asChild className="mt-4">
+                      <Link to="/farmer/applications/new">
+                        <Plus className="h-4 w-4 mr-2" />
+                        Create First Application
+                      </Link>
+                    </Button>
+                  </div>
+                ) : (
+                  applications.slice(0, 3).map((app) => {
+                    const StatusIcon = getStatusIcon(app.status);
+                    const progress = app.status === 'completed' ? 100 : 
+                                   app.status === 'approved' ? 100 :
+                                   app.status === 'under_review' ? 60 :
+                                   app.status === 'pending' ? 20 : 0;
+                    
+                    return (
+                      <div key={app.id} className="border rounded-lg p-4">
+                        <div className="flex items-center justify-between mb-3">
+                          <div>
+                            <h4 className="font-semibold">{app.title}</h4>
+                            <p className="text-sm text-muted-foreground">ID: {app.id.slice(-8)}</p>
+                          </div>
+                          <Badge className={getStatusColor(app.status)}>
+                            <StatusIcon className="h-3 w-3 mr-1" />
+                            {app.status}
+                          </Badge>
                         </div>
-                        <Badge className={getStatusColor(app.status)}>
-                          <StatusIcon className="h-3 w-3 mr-1" />
-                          {app.statusLabel} | {app.statusLabelAr}
-                        </Badge>
-                      </div>
-                      
-                      <div className="space-y-2">
-                        <div className="flex justify-between text-sm">
-                          <span>Progress | التقدم</span>
-                          <span>{app.progress}%</span>
+                        
+                        <div className="space-y-2">
+                          <div className="flex justify-between text-sm">
+                            <span>{t('farmer.progress')}</span>
+                            <span>{progress}%</span>
+                          </div>
+                          <Progress value={progress} className="h-2" />
                         </div>
-                        <Progress value={app.progress} className="h-2" />
+                        
+                        <div className="flex items-center justify-between mt-3 pt-3 border-t">
+                          <span className="text-sm text-muted-foreground">
+                            {t('farmer.submitted')}: {new Date(app.submitted_at).toLocaleDateString()}
+                          </span>
+                          <Button variant="outline" size="sm">
+                            <Eye className="h-4 w-4 mr-1" />
+                            {t('farmer.viewDetails')}
+                          </Button>
+                        </div>
                       </div>
-                      
-                      <div className="flex items-center justify-between mt-3 pt-3 border-t">
-                        <span className="text-sm text-muted-foreground">
-                          Submitted: {app.submittedDate}
-                        </span>
-                        <Button variant="outline" size="sm">
-                          <Eye className="h-4 w-4 mr-1" />
-                          View Details
-                        </Button>
-                      </div>
-                    </div>
-                  );
-                })}
+                    );
+                  })
+                )}
               </div>
               
               <div className="mt-4 pt-4 border-t">

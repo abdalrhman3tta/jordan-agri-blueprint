@@ -10,10 +10,17 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ArrowLeft, ArrowRight, Upload, FileText, MapPin, DollarSign } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import { FileUpload } from "@/components/ui/file-upload";
+import { useApplications } from "@/hooks/useApplications";
+import { useAuth } from "@/hooks/useAuth";
+import { toast } from "sonner";
 
 const NewApplication = () => {
   const navigate = useNavigate();
+  const { profile } = useAuth();
+  const { createApplication } = useApplications();
   const [currentStep, setCurrentStep] = useState(0);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [formData, setFormData] = useState({
     applicationType: "",
     personalInfo: {
@@ -67,9 +74,40 @@ const NewApplication = () => {
     }
   };
 
-  const handleSubmit = () => {
-    console.log("Submitting application:", formData);
-    navigate("/farmer");
+  const handleSubmit = async () => {
+    if (!profile || !formData.applicationType) {
+      toast.error("Please complete all required fields");
+      return;
+    }
+
+    setIsSubmitting(true);
+    
+    try {
+      const result = await createApplication({
+        application_type: formData.applicationType as any,
+        title: applicationTypes.find(type => type.value === formData.applicationType)?.label || formData.applicationType,
+        description: formData.projectDetails.description,
+        priority: 'medium',
+        metadata: {
+          personalInfo: formData.personalInfo,
+          projectDetails: formData.projectDetails,
+          documents: formData.documents
+        }
+      });
+
+      if (result.error) {
+        toast.error("Failed to submit application");
+        return;
+      }
+
+      toast.success("Application submitted successfully!");
+      navigate("/farmer");
+    } catch (error) {
+      console.error("Error submitting application:", error);
+      toast.error("An unexpected error occurred");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -309,21 +347,35 @@ const NewApplication = () => {
                   { key: "landOwnership", label: "وثيقة ملكية الأرض - Land Ownership Document", required: true },
                   { key: "projectPlan", label: "مخطط المشروع - Project Plan", required: false },
                   { key: "financialStatement", label: "البيان المالي - Financial Statement", required: true }
-                ].map((doc) => (
-                  <div key={doc.key} className="border rounded-lg p-4">
-                    <div className="flex items-center justify-between mb-2">
-                      <div className="flex items-center gap-2">
-                        <Label>{doc.label}</Label>
-                        {doc.required && <Badge variant="destructive">Required</Badge>}
-                      </div>
+                  ].map((doc) => (
+                    <div key={doc.key}>
+                      <FileUpload
+                        label={doc.label}
+                        required={doc.required}
+                        bucket="documents"
+                        folder="applications"
+                        accept={{
+                          'application/pdf': ['.pdf'],
+                          'image/*': ['.jpg', '.jpeg', '.png'],
+                          'application/msword': ['.doc'],
+                          'application/vnd.openxmlformats-officedocument.wordprocessingml.document': ['.docx']
+                        }}
+                        onUploadComplete={(files) => {
+                          setFormData({
+                            ...formData,
+                            documents: {
+                              ...formData.documents,
+                              [doc.key]: files[0]
+                            }
+                          });
+                        }}
+                        onUploadError={(error) => {
+                          toast.error("Failed to upload file");
+                          console.error("Upload error:", error);
+                        }}
+                      />
                     </div>
-                    <div className="border-2 border-dashed border-muted rounded-lg p-8 text-center">
-                      <Upload className="h-8 w-8 text-muted-foreground mx-auto mb-2" />
-                      <p className="text-sm text-muted-foreground mb-2">Click to upload or drag and drop</p>
-                      <Button variant="outline" size="sm">Choose File</Button>
-                    </div>
-                  </div>
-                ))}
+                  ))}
               </div>
             </div>
           )}
@@ -381,8 +433,8 @@ const NewApplication = () => {
             </Button>
             
             {currentStep === steps.length - 1 ? (
-              <Button onClick={handleSubmit}>
-                تقديم الطلب - Submit Application
+              <Button onClick={handleSubmit} disabled={isSubmitting}>
+                {isSubmitting ? "Submitting..." : "تقديم الطلب - Submit Application"}
               </Button>
             ) : (
               <Button 

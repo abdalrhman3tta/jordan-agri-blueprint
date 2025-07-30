@@ -19,21 +19,48 @@ import {
   Car,
   Plus
 } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
+import { useTasks } from "@/hooks/useTasks";
+import { useLeaveRequests } from "@/hooks/useLeaveRequests";
+import { useTranslation } from "react-i18next";
 
 const EmployeeDashboard = () => {
-  const employeeInfo = {
-    name: "أحمد محمد الزعبي",
-    position: "مهندس زراعي أول",
-    department: "قسم الإنتاج النباتي",
-    employeeId: "EMP-2024-001",
-    joinDate: "2020-03-15"
-  };
+  const { profile } = useAuth();
+  const { tasks, loading: tasksLoading } = useTasks();
+  const { leaveRequests, loading: leaveLoading } = useLeaveRequests();
+  const { t } = useTranslation();
+
+  const myTasks = tasks.filter(task => task.assigned_to === profile?.id);
 
   const quickStats = [
-    { title: "الإجازات المتبقية", value: "18", subtitle: "يوم", icon: Calendar, color: "text-blue-600" },
-    { title: "المهام المعلقة", value: "7", subtitle: "مهمة", icon: FileText, color: "text-orange-600" },
-    { title: "الطلبات المعتمدة", value: "12", subtitle: "طلب", icon: CheckCircle, color: "text-green-600" },
-    { title: "الاجتماعات القادمة", value: "3", subtitle: "اجتماع", icon: Users, color: "text-purple-600" }
+    { 
+      title: t('employee.leaveBalance'), 
+      value: "18", 
+      subtitle: "يوم", 
+      icon: Calendar, 
+      color: "text-blue-600" 
+    },
+    { 
+      title: t('employee.pendingTasks'), 
+      value: myTasks.filter(task => task.status !== 'completed').length.toString(), 
+      subtitle: "مهمة", 
+      icon: FileText, 
+      color: "text-orange-600" 
+    },
+    { 
+      title: "الطلبات المعتمدة", 
+      value: leaveRequests.filter(req => req.status === 'approved').length.toString(), 
+      subtitle: "طلب", 
+      icon: CheckCircle, 
+      color: "text-green-600" 
+    },
+    { 
+      title: "الاجتماعات القادمة", 
+      value: "3", 
+      subtitle: "اجتماع", 
+      icon: Users, 
+      color: "text-purple-600" 
+    }
   ];
 
   const pendingTasks = [
@@ -95,7 +122,7 @@ const EmployeeDashboard = () => {
         <div className="flex items-center justify-between mb-4">
           <div>
             <h1 className="text-display">لوحة التحكم - Employee Dashboard</h1>
-            <p className="text-muted-foreground">مرحباً {employeeInfo.name}</p>
+            <p className="text-muted-foreground">مرحباً {profile?.full_name || "Employee"}</p>
           </div>
           <div className="flex items-center gap-3">
             <Button variant="outline" size="icon">
@@ -115,15 +142,15 @@ const EmployeeDashboard = () => {
                 <User className="h-8 w-8 text-primary" />
               </div>
               <div className="flex-1">
-                <h2 className="text-xl font-semibold">{employeeInfo.name}</h2>
-                <p className="text-muted-foreground">{employeeInfo.position}</p>
+                <h2 className="text-xl font-semibold">{profile?.full_name || "Employee"}</h2>
+                <p className="text-muted-foreground">{profile?.position || "Position not set"}</p>
                 <div className="flex items-center gap-4 mt-2 text-sm">
                   <span className="flex items-center gap-1">
                     <Building2 className="h-4 w-4" />
-                    {employeeInfo.department}
+                    {profile?.department || "Department not set"}
                   </span>
-                  <span>ID: {employeeInfo.employeeId}</span>
-                  <span>انضم في: {employeeInfo.joinDate}</span>
+                  <span>ID: {profile?.id?.slice(-8) || "N/A"}</span>
+                  <span>انضم في: {profile?.created_at ? new Date(profile.created_at).toLocaleDateString() : "N/A"}</span>
                 </div>
               </div>
             </div>
@@ -189,23 +216,42 @@ const EmployeeDashboard = () => {
             </CardHeader>
             <CardContent>
               <div className="space-y-4">
-                {pendingTasks.map((task) => (
-                  <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
-                    <div className="flex-1">
-                      <h3 className="font-medium">{task.title}</h3>
-                      <p className="text-sm text-muted-foreground">موعد التسليم: {task.dueDate}</p>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <Badge variant={
-                        task.priority === "عاجل" ? "destructive" : 
-                        task.priority === "متوسط" ? "default" : "secondary"
-                      }>
-                        {task.priority}
-                      </Badge>
-                      <Button size="sm">عرض</Button>
-                    </div>
+                {tasksLoading ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">{t('common.loading')}</p>
                   </div>
-                ))}
+                ) : myTasks.length === 0 ? (
+                  <div className="text-center py-8">
+                    <p className="text-muted-foreground">No tasks assigned</p>
+                  </div>
+                ) : (
+                  myTasks.slice(0, 5).map((task) => (
+                    <div key={task.id} className="flex items-center justify-between p-4 border rounded-lg">
+                      <div className="flex-1">
+                        <h3 className="font-medium">{task.title}</h3>
+                        <p className="text-sm text-muted-foreground">
+                          Due: {task.due_date ? new Date(task.due_date).toLocaleDateString() : 'No due date'}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <Badge variant={
+                          task.priority === "urgent" ? "destructive" : 
+                          task.priority === "high" ? "destructive" :
+                          task.priority === "medium" ? "default" : "secondary"
+                        }>
+                          {task.priority}
+                        </Badge>
+                        <Badge variant={
+                          task.status === "completed" ? "default" :
+                          task.status === "in_progress" ? "secondary" : "outline"
+                        }>
+                          {task.status}
+                        </Badge>
+                        <Button size="sm">عرض</Button>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </CardContent>
           </Card>
