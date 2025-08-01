@@ -11,6 +11,7 @@ import ForgotPassword from "./pages/auth/ForgotPassword";
 import FarmerDashboard from "./pages/farmer/FarmerDashboard";
 import NewApplication from "./pages/farmer/NewApplication";
 import EmployeeDashboard from "./pages/employee/EmployeeDashboard";
+import AdminDashboard from "./pages/admin/AdminDashboard";
 import Services from "./pages/Services";
 import About from "./pages/About";
 import Contact from "./pages/Contact";
@@ -37,6 +38,7 @@ const App = () => (
             <Route path="/farmer" element={<Layout><ProtectedRoute requiredRole="farmer"><FarmerDashboard /></ProtectedRoute></Layout>} />
             <Route path="/farmer/applications/new" element={<Layout><ProtectedRoute requiredRole="farmer"><NewApplication /></ProtectedRoute></Layout>} />
             <Route path="/employee" element={<Layout><ProtectedRoute requiredRole="employee"><EmployeeDashboard /></ProtectedRoute></Layout>} />
+            <Route path="/admin" element={<Layout><ProtectedRoute requiredRole="admin"><AdminDashboard /></ProtectedRoute></Layout>} />
             <Route path="/services" element={<Layout><Services /></Layout>} />
             <Route path="/about" element={<Layout><About /></Layout>} />
             <Route path="/contact" element={<Layout><Contact /></Layout>} />

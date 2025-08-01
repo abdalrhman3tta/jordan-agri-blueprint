@@ -1,30 +1,53 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
-import { Menu, Globe, User, LogOut } from "lucide-react";
-import { Link, useLocation } from "react-router-dom";
+import { Menu, Globe, User, LogOut, Bell } from "lucide-react";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import { useAuth } from "@/hooks/useAuth";
+import { useTranslation } from "react-i18next";
+import { LanguageSwitcher } from "./LanguageSwitcher";
+import { NotificationCenter } from "./NotificationCenter";
 import ministryLogo from "@/assets/ministry-logo.png";
 
 const Header = () => {
   const [isOpen, setIsOpen] = useState(false);
-  const [language, setLanguage] = useState<"ar" | "en">("en");
   const location = useLocation();
+  const navigate = useNavigate();
+  const { user, profile, signOut } = useAuth();
+  const { t, i18n } = useTranslation();
 
-  const navigationItems = [
-    { label: "Home", labelAr: "الرئيسية", href: "/" },
-    { label: "Farmer Portal", labelAr: "بوابة المزارعين", href: "/farmer" },
-    { label: "Employee Portal", labelAr: "بوابة الموظفين", href: "/employee" },
-    { label: "Services", labelAr: "الخدمات", href: "/services" },
-    { label: "About", labelAr: "حول الوزارة", href: "/about" },
-    { label: "Contact", labelAr: "اتصل بنا", href: "/contact" },
-  ];
+  const currentLanguage = i18n.language;
 
-  const toggleLanguage = () => {
-    setLanguage(language === "en" ? "ar" : "en");
-    // Here you would implement actual i18n language switching
-    document.documentElement.dir = language === "en" ? "rtl" : "ltr";
-    document.documentElement.lang = language === "en" ? "ar" : "en";
+  const getNavigationItems = () => {
+    const baseItems = [
+      { label: t('nav.home', 'Home'), href: "/" },
+      { label: t('nav.services', 'Services'), href: "/services" },
+      { label: t('nav.about', 'About'), href: "/about" },
+      { label: t('nav.contact', 'Contact'), href: "/contact" },
+    ];
+
+    if (user && profile) {
+      if (profile.role === 'farmer') {
+        baseItems.splice(1, 0, { label: t('nav.farmerPortal', 'Farmer Portal'), href: "/farmer" });
+      } else if (profile.role === 'employee' || profile.role === 'supervisor') {
+        baseItems.splice(1, 0, { label: t('nav.employeePortal', 'Employee Portal'), href: "/employee" });
+      } else if (profile.role === 'admin') {
+        baseItems.splice(1, 0, 
+          { label: t('nav.adminPortal', 'Admin Portal'), href: "/admin" },
+          { label: t('nav.employeePortal', 'Employee Portal'), href: "/employee" }
+        );
+      }
+    }
+
+    return baseItems;
   };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/');
+  };
+
+  const navigationItems = getNavigationItems();
 
   const isActive = (path: string) => location.pathname === path;
 
@@ -41,10 +64,10 @@ const Header = () => {
             />
             <div className="hidden md:block">
               <h1 className="text-lg font-semibold text-primary">
-                {language === "ar" ? "وزارة الزراعة" : "Ministry of Agriculture"}
+                {t('ministry.name', 'Ministry of Agriculture')}
               </h1>
               <p className="text-sm text-muted-foreground">
-                {language === "ar" ? "المملكة الأردنية الهاشمية" : "Hashemite Kingdom of Jordan"}
+                {t('ministry.country', 'Hashemite Kingdom of Jordan')}
               </p>
             </div>
           </Link>
@@ -61,7 +84,7 @@ const Header = () => {
                     : "text-muted-foreground"
                 }`}
               >
-                {language === "ar" ? item.labelAr : item.label}
+                {item.label}
               </Link>
             ))}
           </nav>
@@ -69,26 +92,37 @@ const Header = () => {
           {/* Actions */}
           <div className="flex items-center space-x-4">
             {/* Language Toggle */}
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={toggleLanguage}
-              className="hidden md:flex items-center space-x-2"
-            >
-              <Globe className="h-4 w-4" />
-              <span>{language === "ar" ? "English" : "عربي"}</span>
-            </Button>
+            <LanguageSwitcher />
+
+            {/* Notifications for authenticated users */}
+            {user && <NotificationCenter />}
 
             {/* User Menu */}
-            <div className="hidden md:flex items-center space-x-2">
-              <Button variant="ghost" size="sm">
-                <User className="h-4 w-4 mr-2" />
-                {language === "ar" ? "تسجيل الدخول" : "Login"}
-              </Button>
-              <Button variant="default" size="sm">
-                {language === "ar" ? "إنشاء حساب" : "Register"}
-              </Button>
-            </div>
+            {user ? (
+              <div className="hidden md:flex items-center space-x-2">
+                <span className="text-sm text-muted-foreground">
+                  {t('common.welcome', 'Welcome')}, {profile?.full_name}
+                </span>
+                <Button variant="ghost" size="sm" onClick={handleSignOut}>
+                  <LogOut className="h-4 w-4 mr-2" />
+                  {t('auth.signOut', 'Sign Out')}
+                </Button>
+              </div>
+            ) : (
+              <div className="hidden md:flex items-center space-x-2">
+                <Button variant="ghost" size="sm" asChild>
+                  <Link to="/auth/login">
+                    <User className="h-4 w-4 mr-2" />
+                    {t('auth.signIn', 'Sign In')}
+                  </Link>
+                </Button>
+                <Button variant="default" size="sm" asChild>
+                  <Link to="/auth/register">
+                    {t('auth.register', 'Register')}
+                  </Link>
+                </Button>
+              </div>
+            )}
 
             {/* Mobile Menu */}
             <Sheet open={isOpen} onOpenChange={setIsOpen}>
@@ -110,28 +144,39 @@ const Header = () => {
                           : "hover:bg-muted"
                       }`}
                     >
-                      {language === "ar" ? item.labelAr : item.label}
+                      {item.label}
                     </Link>
                   ))}
                   
                   <div className="pt-4 border-t">
-                    <Button
-                      variant="ghost"
-                      onClick={toggleLanguage}
-                      className="w-full justify-start"
-                    >
-                      <Globe className="h-4 w-4 mr-2" />
-                      {language === "ar" ? "English" : "عربي"}
-                    </Button>
+                    <LanguageSwitcher />
                     
-                    <Button variant="ghost" className="w-full justify-start mt-2">
-                      <User className="h-4 w-4 mr-2" />
-                      {language === "ar" ? "تسجيل الدخول" : "Login"}
-                    </Button>
-                    
-                    <Button variant="default" className="w-full mt-2">
-                      {language === "ar" ? "إنشاء حساب" : "Register"}
-                    </Button>
+                    {user ? (
+                      <>
+                        <div className="text-sm text-muted-foreground mb-2">
+                          {t('common.welcome', 'Welcome')}, {profile?.full_name}
+                        </div>
+                        <Button variant="ghost" onClick={handleSignOut} className="w-full justify-start">
+                          <LogOut className="h-4 w-4 mr-2" />
+                          {t('auth.signOut', 'Sign Out')}
+                        </Button>
+                      </>
+                    ) : (
+                      <>
+                        <Button variant="ghost" className="w-full justify-start mt-2" asChild>
+                          <Link to="/auth/login" onClick={() => setIsOpen(false)}>
+                            <User className="h-4 w-4 mr-2" />
+                            {t('auth.signIn', 'Sign In')}
+                          </Link>
+                        </Button>
+                        
+                        <Button variant="default" className="w-full mt-2" asChild>
+                          <Link to="/auth/register" onClick={() => setIsOpen(false)}>
+                            {t('auth.register', 'Register')}
+                          </Link>
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </div>
               </SheetContent>
