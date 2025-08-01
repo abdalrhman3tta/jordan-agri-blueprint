@@ -111,7 +111,7 @@ const AdminDashboard = () => {
     }
   };
 
-  const updateUserRole = async (userId: string, newRole: string) => {
+  const updateUserRole = async (userId: string, newRole: 'admin' | 'supervisor' | 'employee' | 'farmer') => {
     try {
       const { error } = await supabase
         .from('profiles')
